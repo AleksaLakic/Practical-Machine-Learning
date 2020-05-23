@@ -1,0 +1,277 @@
+---
+title: "Practical Machine Learning - Final Project"
+author: "Aleksa Lakic"
+date: "21/05/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This document is my final project for the Coursera's "Practical Machine Learning" course. It was produced using R Markdown and the Knit functionality on Rstudio.
+
+## I - Overview of the project
+
+**1. Introduction**
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+**2. Objective**
+
+In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict the manner in which they did the exercise. This is the "classe" variable in the training set.
+
+## II - Methodology for the data collection and preparation
+
+### 1. Preparation of the Environment
+
+**Installation/loading of the packages necessary for the project**
+
+*The packages were installed by using the function install.packages("name of the library"). Example: install.packages("rpart").*
+
+The following libraries were used for this project:
+
+```{r}
+library(caret)
+library(e1071)
+library(rattle)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(randomForest)
+library(corrplot)
+library(gbm)
+library(lattice)
+library(ggplot2)
+library(rmarkdown)
+```
+
+### 2. Data preparation
+
+**Download the data**
+
+```{r}
+# Upload the date from the internet
+Training_URL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+Testing_URL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+# Read the data on RStudio
+Train_Raw_Data <- read.csv(url(Training_URL), header = TRUE)
+Valid_Raw_Data <- read.csv(url(Testing_URL), header = TRUE)
+```
+
+*Note: The datasets used in this project are available thanks to W.Ugilino, D. Cardador, K. Vega, E. Velloso, R. Milidiu, H. Fuks of their document called "Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements".*
+
+```{r}
+#Show the data
+str(Train_Raw_Data)
+str(Valid_Raw_Data)
+#The dimension of the two dataset
+dim(Train_Raw_Data)
+dim(Valid_Raw_Data)
+```
+
+* Both datasets have 160 variables
+* Training dataset: 19622 Observations
+* Validation dataset: 20 observations
+
+*The "Train_Raw_Data" dataset will be used as an input to create the dataset for the prediction models.*
+
+*The dataset "Valid_Raw_Data" will be used to test the prediction model on the 20 test cases.*
+
+*This partiioning will work for determining the out-of-sample errors.*
+
+### 3. Data Partitioning
+
+We partitioned the traning dataset called "pml-training.csv" into two datasets:
+* 70% for the training dataset
+* 30% for the testing dataset
+
+```{r}
+set.seed(28765)
+TrainingSample <- createDataPartition(Train_Raw_Data$classe, p = 0.7, list = FALSE)
+Train_Set <- Train_Raw_Data[TrainingSample, ]
+Test_Set <- Train_Raw_Data[-TrainingSample, ]
+dim(Train_Set)
+dim(Test_Set)
+```
+
+*Both datasets have 160 variables. They includes many missing values and the first 7 columns have little impact on the variable "classe". Some columns have values close to 0. Thus, we need to clean and prepare the data.*
+
+### 3. Clean and prepare the data
+
+**Remove variables that contains missing values**
+
+```{r}
+#remove variables that contains missing values
+Train_Set <- Train_Set[, colSums(is.na(Train_Set)) == 0]
+Test_Set <- Test_Set[, colSums(is.na(Test_Set)) == 0]
+#Dimension of both sets of data
+dim(Train_Set)
+dim(Test_Set)
+```
+
+**Remove variables that would have little impact on the variable "classe"**
+
+```{r}
+#remove variables in the uploaded data of the training dataset
+Train_Set <- Train_Set[, -c(1:7)]
+dim(Train_Set)
+#remove variables in the validation dataset
+Test_Set <- Test_Set[, -c(1:7)]
+dim(Test_Set)
+```
+
+**Cleaning by removing the variables that have a near zero variance**
+
+```{r}
+AZV <- nearZeroVar(Train_Set)
+Train_Set <- Train_Set[, -AZV]
+Test_Set <- Test_Set[, -AZV]
+dim(Train_Set)
+dim(Test_Set)
+```
+
+By doing these manipulations, we have 53 variables now. 
+How are these variables correlated between them?
+
+### 4. Correlation between variables
+
+**Compute the correlation between the different variables**
+
+```{r}
+corMatrix <- cor(Train_Set[,-53]) 
+colors<- colorRampPalette(c("darkblue", "white","brown"))(100) #Colors for the matrix
+corrplot(corMatrix, order = "AOE", method = "color",
+         type = "upper", tl.cex = 0.8, tl.col = "black", col = colors) #Plot the correlation matrix
+```
+
+
+In this graph, we observe the correlation between the different variables. Variables which have dark blue or dark brown intersections with others are the most correlated between them.
+
+
+**Find the names of the variables that are highly correlated**
+
+```{r}
+highCor = findCorrelation(corMatrix, cutoff = 0.8) # The 20% most correlated variables
+names(Train_Set)[highCor] # Show the names of the highly correlated variables
+```
+
+## III - Prediction Model Building
+
+### 1. Classification trees' model (class)
+
+**Set the model**```
+
+```{r}
+set.seed(28765)
+ModelTree <- rpart(classe ~ ., data=Train_Set, method="class") #use of the rpart package
+rpart.plot(ModelTree, main="Classfication Trees")  #Plot the classification trees as a dendogram
+```
+
+**Classification Trees' Prediction Model**
+
+We use the model on the Test_Data and determine the accuracy of the model.
+
+```{r}
+PredictClassTree <- predict(ModelTree, Test_Set, type = "class") #Predict function for this model
+CMtree <- confusionMatrix(PredictClassTree, as.factor(Test_Set$classe)) #Create the matrix of the prediction results
+CMtree # Show the matrix
+```
+
+* The accuracy rate of the model is low: 0.7422
+* The out-of-sample error is high (around 0.258)
+
+**Plot the confusion matrix**
+
+```{r}
+plot(CMtree$table, col = CMtree$byClass,
+     main = paste("Classification Tree Model's Accuracy =",
+                  round(CMtree$overall["Accuracy"], 4)))
+```
+
+
+### 2. Gradient Boosting Model (gbm)
+
+**Set the model**
+
+```{r}
+set.seed(28765)
+control_gbm <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+modFit_gbm  <- train(classe ~ ., data=Train_Set, method = "gbm",
+                    trControl = control_gbm, verbose = FALSE)
+modFit_gbm$finalModel
+```
+
+**Gradient Boosting Model prediction**
+
+```{r}
+predict_gbm <- predict(modFit_gbm, Test_Set) #Predict function for the gbm model
+confMatrix_gbm <- confusionMatrix(predict_gbm, as.factor(Test_Set$classe))#Create the matrix of the prediction results
+confMatrix_gbm #Show the matrix
+```
+
+* The accuracy rate of the model is high: 0.958
+* The out-of-sample error is low (around 0.04)
+
+**Plot the confusion matrix**
+
+```{r}
+plot(confMatrix_gbm$table, col = confMatrix_gbm$byClass, 
+     main = paste("Gradient Boosting Model's Accuracy =", round(confMatrix_gbm$overall["Accuracy"], 4)))
+```
+
+### 3. Random Forest Model (rf)
+
+**Set the model**
+
+```{r}
+set.seed(28765)
+CRF <- trainControl(method = "cv", number = 3, verboseIter = FALSE)
+RF_Model <- train(classe ~ ., data = Train_Set, method = "rf", trControl = CRF)
+RF_Model$finalModel
+```
+
+**Random Forest Model prediction**
+
+```{r}
+predictRF <- predict(RF_Model, newdata = Test_Set) #Predict function for the Random Forest model
+CMRF <- confusionMatrix(predictRF, as.factor(Test_Set$classe)) #Create the matrix of the prediction results
+CMRF #Show the matrix
+```
+
+**Plot the confusion matrix**
+
+```{r}
+plot(CMRF$table, col = CMRF$byClass, 
+     main = paste("Random Forest Model's Accuracy =",
+                  round(CMRF$overall['Accuracy'], 4)))
+```
+
+* The accuracy rate of the model is very high: 0.9918
+* The out-of-sample error is very low (around 0.008)
+
+## IV - Conclusion and final results
+
+### 1. Choose the most accurate prediction model for the validation dataset
+
+From the previous computations, we obtain the following results:
+
+* Classification Tree Model's Accuracy = 0.7422
+* G model's accuracy = 0.958
+* Random Forest Model's Accuracy = 0.9918
+
+*As the Random Forest model is the most accurate for the prediction in-sample. Thus, we will use it to predict 20 different test cases.*
+
+### 2. Results
+
+```{r}
+# The dataset "Valid_Raw_Data" contains the 20 test cases
+predict_test <- predict(RF_Model , newdata=Valid_Raw_Data)
+predict_test
+```
+
+These results will be used for the Final Quiz.
