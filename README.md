@@ -1,2 +1,2 @@
-# Project
+# Final project
  Practical Machine Learning
