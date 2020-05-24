@@ -3,8 +3,8 @@ title: "Practical Machine Learning - Final Project"
 author: "Aleksa Lakic"
 date: "21/05/2020"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -182,8 +182,8 @@ CMtree <- confusionMatrix(PredictClassTree, as.factor(Test_Set$classe)) #Create 
 CMtree # Show the matrix
 ```
 
-* The accuracy rate of the model is low: 0.7422
-* The out-of-sample error is high (around 0.258)
+* The accuracy rate of the model is low: 74.22%
+* The out-of-sample error is high (around 25.78%)
 
 **Plot the confusion matrix**
 
@@ -214,8 +214,8 @@ confMatrix_gbm <- confusionMatrix(predict_gbm, as.factor(Test_Set$classe))#Creat
 confMatrix_gbm #Show the matrix
 ```
 
-* The accuracy rate of the model is high: 0.958
-* The out-of-sample error is low (around 0.04)
+* The accuracy rate of the model is high: 95.80%
+* The out-of-sample error is low (around 4.20%)
 
 **Plot the confusion matrix**
 
@@ -251,8 +251,8 @@ plot(CMRF$table, col = CMRF$byClass,
                   round(CMRF$overall['Accuracy'], 4)))
 ```
 
-* The accuracy rate of the model is very high: 0.9918
-* The out-of-sample error is very low (around 0.008)
+* The accuracy rate of the model is very high: 99.18%
+* The out-of-sample error is very low (around 0.82%)
 
 ## IV - Conclusion and final results
 
@@ -260,9 +260,9 @@ plot(CMRF$table, col = CMRF$byClass,
 
 From the previous computations, we obtain the following results:
 
-* Classification Tree Model's Accuracy = 0.7422
-* G model's accuracy = 0.958
-* Random Forest Model's Accuracy = 0.9918
+* Classification Tree Model's Accuracy = 74.22%
+* G model's accuracy = 95.80%
+* Random Forest Model's Accuracy = 99.18%
 
 *As the Random Forest model is the most accurate for the prediction in-sample. Thus, we will use it to predict 20 different test cases.*
 
@@ -272,6 +272,12 @@ From the previous computations, we obtain the following results:
 # The dataset "Valid_Raw_Data" contains the 20 test cases
 predict_test <- predict(RF_Model , newdata=Valid_Raw_Data)
 predict_test
+summary(predict_test)
 ```
 
 These results will be used for the Final Quiz.
+
+### 3. Out-of-sample errors estimate
+
+*Note: The rf model was optimized for the initial dataset. We have the following relation verified: in-sample error < out-of-sample error. Thus, we think that the out-of-sample error is higher than 0.8% due to overfitting and lower than 6%. In fact, data have two parts: noise and signal. Reducing the noise by preparing and cleaning the data could have lead to overfitting. Hence, predictors might not work as well in new sample.*
+
